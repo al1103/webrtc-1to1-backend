@@ -28,18 +28,12 @@ io.on("connection", (socket) => {
     }
 
     if (role === "broadcaster") {
-      if (room.broadcaster && room.broadcaster !== socket.id) {
-        socket.emit("room-full", "Room đã có người phát.");
-        return;
-      }
+      // Overwrite the broadcaster if they reconnect
       room.broadcaster = socket.id;
     }
 
     if (role === "viewer") {
-      if (room.viewer && room.viewer !== socket.id) {
-        socket.emit("room-full", "Room đã có viewer.");
-        return;
-      }
+      // Overwrite the viewer if they reconnect
       room.viewer = socket.id;
     }
 
