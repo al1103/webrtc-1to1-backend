@@ -11,6 +11,8 @@ const io = new Server(httpServer, {
   cors: {
     origin: "*",
   },
+  pingInterval: 25000,
+  pingTimeout: 60000,
 });
 
 const rooms = new Map();
@@ -24,16 +26,17 @@ io.on("connection", (socket) => {
 
     let room = rooms.get(roomId);
     if (!room) {
-      room = { broadcaster: null, viewer: null };
+      room = { broadcaster: null, viewer: null, deleteTimeout: null };
+    } else if (room.deleteTimeout) {
+      clearTimeout(room.deleteTimeout);
+      room.deleteTimeout = null;
     }
 
     if (role === "broadcaster") {
-      // Overwrite the broadcaster if they reconnect
       room.broadcaster = socket.id;
     }
 
     if (role === "viewer") {
-      // Overwrite the viewer if they reconnect
       room.viewer = socket.id;
     }
 
@@ -50,8 +53,6 @@ io.on("connection", (socket) => {
 
     if (role === "broadcaster" && room.viewer) {
       io.to(room.viewer).emit("broadcaster-joined");
-      // Viewer got here first; tell the broadcaster too so it creates the offer
-      // regardless of which side joined the room first.
       socket.emit("viewer-joined");
     }
   });
@@ -90,7 +91,12 @@ io.on("connection", (socket) => {
     }
 
     if (!room.broadcaster && !room.viewer) {
-      rooms.delete(roomId);
+      room.deleteTimeout = setTimeout(() => {
+        const currentRoom = rooms.get(roomId);
+        if (currentRoom && !currentRoom.broadcaster && !currentRoom.viewer) {
+          rooms.delete(roomId);
+        }
+      }, 30000);
     }
 
     console.log(`Disconnected: ${socket.id}`);
